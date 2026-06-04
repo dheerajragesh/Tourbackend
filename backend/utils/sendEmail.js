@@ -1,56 +1,71 @@
-import path from "path";
-import { fileURLToPath } from "url";
-
 import nodemailer from "nodemailer";
-// NOTE: nodemailer-express-handlebars is not installed in package.json.
-// This file sends either raw HTML (positional signature) or plain text.
-// If you later install 'nodemailer-express-handlebars', you can re-enable template rendering.
-
-
 import dotenv from "dotenv";
-dotenv.config();
+import path from "path";
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
+// Ensure env file is loaded from repo root regardless of cwd
+dotenv.config({ path: path.resolve(process.cwd(), ".env") });
 
-const transporter = nodemailer.createTransport({
-  host: process.env.MAIL_TRAP_HOST,
-  port: Number(process.env.MAIL_TRAP_PORT),
-  auth: {
-    user: process.env.MAIL_TRAP_USER,
-    pass: process.env.MAIL_TRAP_PASS,
-  },
-  secure: false,
-});
+const requiredEnv = [
+  "MAIL_TRAP_HOST",
+  "MAIL_TRAP_PORT",
+  "MAIL_TRAP_USER",
+  "MAIL_TRAP_PASS",
+  "EMAIL_USER",
+];
 
-const handlebarOptions = {
-  viewEngine: {
-    extname: ".handlebars",
+function getEnv(name) {
+  return process.env[name];
+}
 
-    layoutsDir: path.join(
-      process.cwd(),
-      "views",
-      "layouts"
-    ),
+function getMissingEnv() {
+  return requiredEnv.filter((k) => {
+    const v = getEnv(k);
+    return v === undefined || v === null || String(v).trim() === "";
+  });
+}
 
-    defaultLayout: "main",
-  },
+function getSecureFromPort(portStr) {
+  const override = process.env.MAIL_TRAP_SECURE;
+  if (override !== undefined) {
+    return override === "true" || override === "1";
+  }
 
-  viewPath: path.join(
-    process.cwd(),
-    "views"
-  ),
+  // Common convention: 465 => implicit TLS
+  return String(portStr) === "465";
+}
 
-  extName: ".handlebars",
-};
+function createTransporter() {
+  const missing = getMissingEnv();
+  if (missing.length) {
+    throw new Error(
+      `Email not configured. Missing env vars: ${missing.join(", ")}`
+    );
+  }
 
-// transporter.use("compile", hbs(handlebarOptions));
-// Disabled because nodemailer-express-handlebars is not installed.
-// Current controllers already pass raw HTML strings as the 3rd argument to sendEmail.
+  const portNum = Number(process.env.MAIL_TRAP_PORT);
+  if (!Number.isFinite(portNum)) {
+    throw new Error(
+      `Invalid MAIL_TRAP_PORT: ${process.env.MAIL_TRAP_PORT}`
+    );
+  }
 
+  const transporter = nodemailer.createTransport({
+    host: process.env.MAIL_TRAP_HOST,
+    port: portNum,
+    auth: {
+      user: process.env.MAIL_TRAP_USER,
+      pass: process.env.MAIL_TRAP_PASS,
+    },
+    secure: getSecureFromPort(process.env.MAIL_TRAP_PORT),
+  });
+
+  return transporter;
+}
 
 const sendEmail = async (arg1, arg2, arg3) => {
   try {
+    const transporter = createTransporter();
+
     // Backward-compatible signature:
     // - sendEmail(to, subject, htmlOrTemplate)
     // - sendEmail({to, subject, template, context})
@@ -72,11 +87,16 @@ const sendEmail = async (arg1, arg2, arg3) => {
       }
     }
 
+    if (!to) {
+      throw new Error("Missing 'to' email address");
+    }
+
     const mailOptions = {
       from: `"TourBook" <${process.env.EMAIL_USER}>`,
       to,
       subject,
       ...(html ? { html } : {}),
+      // Template rendering requires nodemailer-express-handlebars compile middleware.
       ...(mailTemplate ? { template: mailTemplate } : {}),
       ...(context || !mailTemplate
         ? {
@@ -95,9 +115,26 @@ const sendEmail = async (arg1, arg2, arg3) => {
     console.log("Email sent:", info.messageId);
     return info;
   } catch (error) {
-    console.error("Email sending failed:", error);
+    // Improve debuggability: show nodemailer + config-related info
+    console.error(
+      "Email sending failed:",
+      {
+        message: error?.message || String(error),
+        code: error?.code,
+        response: error?.response,
+        stack: error?.stack,
+        // Avoid logging passwords; include only host/user/port presence
+        env: {
+          MAIL_TRAP_HOST: process.env.MAIL_TRAP_HOST ? "***" : undefined,
+          MAIL_TRAP_PORT: process.env.MAIL_TRAP_PORT,
+          MAIL_TRAP_USER: process.env.MAIL_TRAP_USER ? "***" : undefined,
+          EMAIL_USER: process.env.EMAIL_USER ? "***" : undefined,
+        },
+      }
+    );
     throw error;
   }
 };
 
 export default sendEmail;
+
