@@ -4,8 +4,12 @@ import cookieParser from "cookie-parser";
 
 import authRoutes from "./routs/authRoutes.js";
 import tourRoutes from "./routs/tourRoutes.js";
+import paymentRoutes from "./routs/paymentRoutes.js";
 import bookingRoutes from "./routs/bookingRoutes.js";
 import reviewRoutes from "./routs/reviewRoutes.js";
+import dotenv from "dotenv";
+
+dotenv.config();  
 
 const app = express();
 
@@ -27,5 +31,7 @@ app.use("/api/tours", tourRoutes);
 app.use("/api/bookings", bookingRoutes);
 
 app.use("/api/reviews", reviewRoutes);
+
+app.use("/api/payments", paymentRoutes);
 
 export default app;

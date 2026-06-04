@@ -1,16 +1,30 @@
 import express from "express";
+import authMiddleware from "../middleware/authMiddleware.js";
 
 import {
   createBooking,
   getMyBookings,
+  cancelBooking,
 } from "../controllers/bookingController.js";
-
-import authMiddleware from "../middleware/authMiddleware.js";
 
 const router = express.Router();
 
-router.post("/", authMiddleware, createBooking);
+router.post(
+  "/create",
+  authMiddleware,
+  createBooking
+);
 
-router.get("/my", authMiddleware, getMyBookings);
+router.get(
+  "/my-bookings",
+  authMiddleware,
+  getMyBookings
+);
+
+router.delete(
+  "/cancel/:id",
+  authMiddleware,
+  cancelBooking
+);
 
 export default router;

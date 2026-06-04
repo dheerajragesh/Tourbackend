@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+
+<html>
+<head>
+<meta charset="UTF-8">
+
+<style>
+body{
+  margin:0;
+  padding:40px;
+  background:#f4f7fb;
+  font-family:Arial,sans-serif;
+}
+
+.wrapper{
+  max-width:650px;
+  margin:auto;
+  background:white;
+  border-radius:16px;
+  overflow:hidden;
+  box-shadow:0 5px 25px rgba(0,0,0,.08);
+}
+
+.header{
+  background:#0f172a;
+  padding:35px;
+  text-align:center;
+}
+
+.logo-box{
+  display:inline-block;
+  background:#0f766e;
+  color:white;
+  width:55px;
+  height:55px;
+  line-height:55px;
+  border-radius:10px;
+  font-size:28px;
+}
+
+.brand{
+  color:white;
+  font-size:30px;
+  font-weight:bold;
+  margin-top:10px;
+}
+
+.tagline{
+  color:#cbd5e1;
+}
+
+.content{
+  padding:40px;
+}
+
+.button{
+  display:inline-block;
+  background:#0f766e;
+  color:white !important;
+  text-decoration:none;
+  padding:14px 24px;
+  border-radius:8px;
+  font-weight:bold;
+}
+
+.footer{
+  background:#f8fafc;
+  text-align:center;
+  padding:20px;
+  color:#64748b;
+}
+</style>
+
+</head>
+
+<body>
+
+<div class="wrapper">
+
+<div class="header">
+
+<a href="{{websiteLink}}" style="text-decoration:none;">
+<div class="logo-box">🧭</div>
+
+<div class="brand">
+TourBook
+</div>
+</a>
+
+<p class="tagline">
+Discover Amazing Destinations
+</p>
+
+</div>
+
+<div class="content">
+{{{body}}}
+</div>
+
+<div class="footer">
+© {{year}} TourBook • All Rights Reserved
+</div>
+
+</div>
+
+</body>
+</html>
