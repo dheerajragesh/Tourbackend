@@ -27,32 +27,16 @@ export const registerUser = async (req, res) => {
       password: hashedPassword,
     });
 
-    // Send Welcome Email
-    await sendEmail(
-      user.email,
-      "Welcome to Tour Booking",
-      `
-      <div style="font-family: Arial, sans-serif;">
-        <h2>Welcome ${user.name} 🎉</h2>
-
-        <p>
-          Your account has been created successfully.
-        </p>
-
-        <p>
-          You can now explore tours and make bookings.
-        </p>
-
-        <br>
-
-        <p>
-          Thank you for joining us.
-        </p>
-
-        <h3>Tour Booking Team</h3>
-      </div>
-      `
-    );
+    // Send Welcome Email (Handlebars template)
+    await sendEmail({
+      to: user.email,
+      subject: "Welcome to Tour Booking",
+      template: emailTemplates.welcome_mail,
+      context: {
+        name: user.name,
+        websiteLink: process.env.FRONTEND_URL || "http://localhost:3000",
+      },
+    });
 
     res.status(201).json({
       message: "Registration Successful",
@@ -88,30 +72,18 @@ export const loginUser = async (req, res) => {
       sameSite: "lax",
     });
 
-    // Send Login Alert Email
-    await sendEmail(
-      user.email,
-      "Login Alert",
-      `
-      <div style="font-family: Arial, sans-serif;">
-        <h2>Hello ${user.name}</h2>
-
-        <p>
-          Your account was logged in successfully.
-        </p>
-
-        <p>
-          If this wasn't you, please change your password immediately.
-        </p>
-
-        <br>
-
-        <p>
-          Tour Booking Security Team
-        </p>
-      </div>
-      `
-    );
+    // Send Login Alert Email (Handlebars template)
+    await sendEmail({
+      to: user.email,
+      subject: "Login Alert",
+      template: emailTemplates.login_alert,
+      context: {
+        name: user.name,
+        loginTime: new Date().toLocaleString(),
+        device: req.headers["user-agent"] || "Unknown",
+        location: "Unknown",
+      },
+    });
 
     res.status(200).json({
       message: "Login Successful",
@@ -171,7 +143,7 @@ export const updateRole = async (req, res) => {
         { new: true }
       ).select("-password");
 
-    // Send Role Change Email
+    // Send Role Change Email (still raw HTML; template not provided yet)
     await sendEmail(
       updatedUser.email,
       "Role Updated",
