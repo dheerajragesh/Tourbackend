@@ -5,6 +5,7 @@ import {
   createBooking,
   getMyBookings,
   cancelBooking,
+  updateBooking,
 } from "../controllers/bookingController.js";
 
 const router = express.Router();
@@ -26,5 +27,18 @@ router.delete(
   authMiddleware,
   cancelBooking
 );
+
+router.put(
+  "/:id",
+  authMiddleware,
+  updateBooking
+);
+
+router.patch(
+  "/:id",
+  authMiddleware,
+  updateBooking
+);
+
 
 export default router;
