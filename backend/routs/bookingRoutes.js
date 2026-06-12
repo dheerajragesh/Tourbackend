@@ -4,9 +4,12 @@ import authMiddleware from "../middleware/authMiddleware.js";
 import {
   createBooking,
   getMyBookings,
+  getOperatorBookings,
   cancelBooking,
   updateBooking,
+  updateBookingStatus,
 } from "../controllers/bookingController.js";
+import roleMiddleware from "../middleware/roleMiddleware.js";
 
 const router = express.Router();
 
@@ -20,6 +23,27 @@ router.get(
   "/my-bookings",
   authMiddleware,
   getMyBookings
+);
+
+router.get(
+  "/operator",
+  authMiddleware,
+  roleMiddleware("operator", "admin"),
+  getOperatorBookings
+);
+
+router.patch(
+  "/status/:id",
+  authMiddleware,
+  roleMiddleware("operator", "admin"),
+  updateBookingStatus
+);
+
+router.patch(
+  "/:id/status",
+  authMiddleware,
+  roleMiddleware("operator", "admin"),
+  updateBookingStatus
 );
 
 router.delete(

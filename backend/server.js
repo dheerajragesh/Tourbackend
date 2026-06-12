@@ -25,6 +25,14 @@ app.locals.io = io;
 // Store online users
 const onlineUsers = new Map();
 
+function emitToUser(userId, eventName, payload) {
+  const receiverSocket = onlineUsers.get(String(userId));
+
+  if (receiverSocket) {
+    io.to(receiverSocket).emit(eventName, payload);
+  }
+}
+
 io.on("connection", (socket) => {
   console.log(
     `🟢 Socket Connected: ${socket.id}`
@@ -34,7 +42,7 @@ io.on("connection", (socket) => {
   // USER JOIN
   // =========================
   socket.on("join", (userId) => {
-    onlineUsers.set(userId, socket.id);
+    onlineUsers.set(String(userId), socket.id);
 
     console.log(
       `🟢 User ${userId} is online`
@@ -58,17 +66,11 @@ io.on("connection", (socket) => {
           data
         );
 
-        const receiverSocket =
-          onlineUsers.get(
-            data.receiverId
-          );
-
-        if (receiverSocket) {
-          io.to(receiverSocket).emit(
-            "receive_private_message",
-            data
-          );
-        }
+        emitToUser(
+          data.receiverId,
+          "receive_private_message",
+          data
+        );
       } catch (error) {
         console.log(
           "Message Error:",
@@ -82,17 +84,7 @@ io.on("connection", (socket) => {
   // TYPING
   // =========================
   socket.on("typing", (data) => {
-    const receiverSocket =
-      onlineUsers.get(
-        data.receiverId
-      );
-
-    if (receiverSocket) {
-      io.to(receiverSocket).emit(
-        "typing",
-        data
-      );
-    }
+    emitToUser(data.receiverId, "typing", data);
   });
 
   // =========================

@@ -16,11 +16,7 @@ export const listConversationsForUser = async (req, res) => {
       .sort({ updatedAt: -1 });
 
     res.status(200).json({
-      conversations: conversations.map((c) => ({
-        _id: c._id,
-        userA: c.userA,
-        userB: c.userB,
-      })),
+      conversations,
     });
   } catch (err) {
     res.status(500).json({ message: err.message });

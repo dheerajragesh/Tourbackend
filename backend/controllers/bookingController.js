@@ -3,6 +3,18 @@ import Tour from "../models/Tour.js";
 import User from "../models/User.js";
 import sendEmail from "../utils/sendEmail.js";
 
+const BOOKING_STATUSES = new Set([
+  "pending",
+  "confirmed",
+  "success",
+  "paid",
+  "cancelled",
+  "canceled",
+]);
+
+const isSameId = (left, right) =>
+  String(left || "") === String(right || "");
+
 // Create Booking
 export const createBooking = async (req, res) => {
   try {
@@ -66,6 +78,35 @@ export const createBooking = async (req, res) => {
   }
 };
 
+// Get bookings for tours owned by the current operator
+export const getOperatorBookings = async (
+  req,
+  res
+) => {
+  try {
+    const tours = await Tour.find({
+      operator: req.user._id,
+    }).select("_id");
+
+    const bookings = await Booking.find({
+      tour: {
+        $in: tours.map((tour) => tour._id),
+      },
+    })
+      .populate("tour")
+      .populate("user", "name email role")
+      .sort({ createdAt: -1 });
+
+    res.status(200).json({
+      bookings,
+    });
+  } catch (error) {
+    res.status(500).json({
+      message: error.message,
+    });
+  }
+};
+
 // Get My Bookings
 export const getMyBookings = async (
   req,
@@ -80,6 +121,62 @@ export const getMyBookings = async (
 
     res.status(200).json({
       bookings,
+    });
+  } catch (error) {
+    res.status(500).json({
+      message: error.message,
+    });
+  }
+};
+
+// Update Booking Status by the operator that owns the tour
+export const updateBookingStatus = async (
+  req,
+  res
+) => {
+  try {
+    const status = String(req.body.status || "").toLowerCase();
+
+    if (!BOOKING_STATUSES.has(status)) {
+      return res.status(400).json({
+        message: "Invalid booking status",
+      });
+    }
+
+    const booking = await Booking.findById(
+      req.params.id
+    )
+      .populate("tour")
+      .populate("user", "name email role");
+
+    if (!booking) {
+      return res.status(404).json({
+        message: "Booking not found",
+      });
+    }
+
+    const tourOperatorId = booking.tour?.operator;
+    const canManage =
+      isSameId(tourOperatorId, req.user._id) ||
+      req.user.role === "admin";
+
+    if (!canManage) {
+      return res.status(403).json({
+        message: "Not authorized to update this booking",
+      });
+    }
+
+    booking.status = status;
+
+    if (["success", "paid"].includes(status)) {
+      booking.paymentStatus = "paid";
+    }
+
+    await booking.save();
+
+    res.status(200).json({
+      message: "Booking status updated",
+      booking,
     });
   } catch (error) {
     res.status(500).json({
