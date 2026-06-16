@@ -1,4 +1,5 @@
 import bcrypt from "bcryptjs";
+import jwt from "jsonwebtoken";
 import User from "../models/User.js";
 import generateToken from "../utils/generateTocken.js";
 import sendEmail from "../utils/sendEmail.js";
@@ -177,5 +178,146 @@ export const updateRole = async (req, res) => {
     return res.status(500).json({
       message: error.message,
     });
+  }
+};
+
+// =============================
+// Forgot Password
+// =============================
+
+export const forgotPassword = async (req, res) => {
+  try {
+    const { email } = req.body;
+
+    if (!email) {
+      return res
+        .status(400)
+        .json({ message: "Email is required" });
+    }
+
+    const user = await User.findOne({ email });
+
+    // Avoid leaking whether user exists
+    if (!user) {
+      return res
+        .status(200)
+        .json({ message: "If the account exists, an email has been sent" });
+    }
+
+    // Simple token (JWT-like) using existing JWT secret so no new deps
+    const resetToken = generateToken(user._id);
+    const resetExpires = new Date(Date.now() + 15 * 60 * 1000); // 15 minutes
+
+    user.passwordResetToken = resetToken;
+    user.passwordResetExpires = resetExpires;
+    await user.save();
+
+    const resetLink = `${process.env.FRONTEND_URL || "http://localhost:3000"}/reset-password?token=${resetToken}`;
+
+    await sendEmail({
+      to: user.email,
+      subject: "Password Reset Request",
+      template: emailTemplates.password_reset,
+      context: {
+        name: user.name,
+        resetLink,
+      },
+    });
+
+    return res
+      .status(200)
+      .json({ message: "Password reset email sent" });
+  } catch (error) {
+    return res.status(500).json({ message: error.message });
+  }
+};
+
+export const resetPassword = async (req, res) => {
+  try {
+    const { token, newPassword } = req.body;
+
+    if (!token || !newPassword) {
+      return res
+        .status(400)
+        .json({ message: "Token and newPassword are required" });
+    }
+
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+
+    const user = await User.findById(decoded.id);
+
+    if (
+      !user ||
+      user.passwordResetToken !== token ||
+      !user.passwordResetExpires ||
+      user.passwordResetExpires.getTime() < Date.now()
+    ) {
+      return res.status(400).json({ message: "Invalid or expired token" });
+    }
+
+    user.password = await bcrypt.hash(newPassword, 10);
+    user.passwordResetToken = undefined;
+    user.passwordResetExpires = undefined;
+
+    await user.save();
+
+    return res.status(200).json({ message: "Password reset successful" });
+  } catch (error) {
+    return res
+      .status(400)
+      .json({ message: "Invalid or expired token" });
+  }
+};
+
+// =============================
+// Wishlist
+// =============================
+
+export const getWishlist = async (req, res) => {
+  try {
+    const user = await User.findById(req.user._id).populate("wishlist");
+    return res.status(200).json({ wishlist: user?.wishlist || [] });
+  } catch (error) {
+    return res.status(500).json({ message: error.message });
+  }
+};
+
+export const addToWishlist = async (req, res) => {
+  try {
+    const { tourId } = req.body;
+
+    if (!tourId) {
+      return res.status(400).json({ message: "tourId is required" });
+    }
+
+    await User.findByIdAndUpdate(
+      req.user._id,
+      { $addToSet: { wishlist: tourId } },
+      { new: true }
+    );
+
+    return res.status(200).json({ message: "Added to wishlist" });
+  } catch (error) {
+    return res.status(500).json({ message: error.message });
+  }
+};
+
+export const removeFromWishlist = async (req, res) => {
+  try {
+    const { tourId } = req.body;
+
+    if (!tourId) {
+      return res.status(400).json({ message: "tourId is required" });
+    }
+
+    await User.findByIdAndUpdate(
+      req.user._id,
+      { $pull: { wishlist: tourId } },
+      { new: true }
+    );
+
+    return res.status(200).json({ message: "Removed from wishlist" });
+  } catch (error) {
+    return res.status(500).json({ message: error.message });
   }
 };

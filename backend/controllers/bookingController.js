@@ -58,7 +58,7 @@ export const createBooking = async (req, res) => {
           bookingDate
         ).toLocaleDateString()}</li>
         <li><strong>Travelers:</strong> ${travelers}</li>
-        <li><strong>Total Price:</strong> $${
+        <li><strong>Total Price:</strong> ₹${
           tour.price * travelers
         }</li>
       </ul>

@@ -11,6 +11,8 @@ import roleMiddleware from "../middleware/roleMiddleware.js";
 
 const router = express.Router();
 
+
+
 router.get("/", getTours);
 
 router.get("/:id", getSingleTour);

@@ -1,140 +1,124 @@
 import nodemailer from "nodemailer";
+import hbs from "nodemailer-express-handlebars";
 import dotenv from "dotenv";
 import path from "path";
+import { fileURLToPath } from "url";
 
-// Ensure env file is loaded from repo root regardless of cwd
-dotenv.config({ path: path.resolve(process.cwd(), ".env") });
+dotenv.config();
 
-const requiredEnv = [
-  "MAIL_TRAP_HOST",
-  "MAIL_TRAP_PORT",
-  "MAIL_TRAP_USER",
-  "MAIL_TRAP_PASS",
-  "EMAIL_USER",
-];
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
-function getEnv(name) {
-  return process.env[name];
-}
+const viewsPath = path.join(__dirname, "../views");
+const layoutsPath = path.join(
+  __dirname,
+  "../views/layouts"
+);
 
-function getMissingEnv() {
-  return requiredEnv.filter((k) => {
-    const v = getEnv(k);
-    return v === undefined || v === null || String(v).trim() === "";
-  });
-}
+const transporter = nodemailer.createTransport({
+  host: process.env.MAIL_TRAP_HOST,
+  port: Number(process.env.MAIL_TRAP_PORT),
+  secure:
+    process.env.MAIL_TRAP_SECURE === "true" ||
+    Number(process.env.MAIL_TRAP_PORT) === 465,
+  auth: {
+    user: process.env.MAIL_TRAP_USER,
+    pass: process.env.MAIL_TRAP_PASS,
+  },
+});
 
-function getSecureFromPort(portStr) {
-  const override = process.env.MAIL_TRAP_SECURE;
-  if (override !== undefined) {
-    return override === "true" || override === "1";
-  }
-
-  // Common convention: 465 => implicit TLS
-  return String(portStr) === "465";
-}
-
-function createTransporter() {
-  const missing = getMissingEnv();
-  if (missing.length) {
-    throw new Error(
-      `Email not configured. Missing env vars: ${missing.join(", ")}`
-    );
-  }
-
-  const portNum = Number(process.env.MAIL_TRAP_PORT);
-  if (!Number.isFinite(portNum)) {
-    throw new Error(
-      `Invalid MAIL_TRAP_PORT: ${process.env.MAIL_TRAP_PORT}`
-    );
-  }
-
-  const transporter = nodemailer.createTransport({
-    host: process.env.MAIL_TRAP_HOST,
-    port: portNum,
-    auth: {
-      user: process.env.MAIL_TRAP_USER,
-      pass: process.env.MAIL_TRAP_PASS,
+// Register Handlebars
+transporter.use(
+  "compile",
+  hbs({
+    viewEngine: {
+      extname: ".handlebars",
+      layoutsDir: layoutsPath,
+      defaultLayout: "main",
+      partialsDir: viewsPath,
     },
-    secure: getSecureFromPort(process.env.MAIL_TRAP_PORT),
-  });
-
-  return transporter;
-}
+    viewPath: viewsPath,
+    extName: ".handlebars",
+  })
+);
 
 const sendEmail = async (arg1, arg2, arg3) => {
   try {
-    const transporter = createTransporter();
+    let to;
+    let subject;
+    let html;
+    let template;
+    let context;
 
-    // Backward-compatible signature:
-    // - sendEmail(to, subject, htmlOrTemplate)
-    // - sendEmail({to, subject, template, context})
-    const { to, subject, template, context } =
-      typeof arg1 === "object" && arg1 !== null
-        ? arg1
-        : { to: arg1, subject: arg2, template: null, context: null };
-
-    let html = undefined;
-    let mailTemplate = template;
-
-    if (typeof arg1 !== "object" && arg1 !== null) {
-      // third argument is raw HTML in your current controllers
+    // Old style:
+    // sendEmail(to, subject, html)
+    if (
+      typeof arg1 === "string"
+    ) {
+      to = arg1;
+      subject = arg2;
       html = arg3;
-    } else {
-      // object signature
-      if (template) {
-        mailTemplate = template;
-      }
+    }
+    // New style:
+    // sendEmail({to,subject,template,context})
+    else {
+      ({
+        to,
+        subject,
+        template,
+        context,
+      } = arg1);
     }
 
     if (!to) {
-      throw new Error("Missing 'to' email address");
+      throw new Error(
+        "Recipient email is required"
+      );
     }
 
     const mailOptions = {
       from: `"TourBook" <${process.env.EMAIL_USER}>`,
       to,
       subject,
-      ...(html ? { html } : {}),
-      // Template rendering requires nodemailer-express-handlebars compile middleware.
-      ...(mailTemplate ? { template: mailTemplate } : {}),
-      ...(context || !mailTemplate
-        ? {
-            context: {
-              ...(context || {}),
-              currentYear: new Date().getFullYear(),
-              websiteLink:
-                process.env.FRONTEND_URL ||
-                "http://localhost:3000",
-            },
-          }
-        : {}),
     };
 
-    const info = await transporter.sendMail(mailOptions);
-    console.log("Email sent:", info.messageId);
+    // Template email
+    if (template) {
+      mailOptions.template = template;
+
+      mailOptions.context = {
+        ...(context || {}),
+        currentYear:
+          new Date().getFullYear(),
+        websiteLink:
+          process.env.FRONTEND_URL ||
+          "http://localhost:3000",
+      };
+    }
+
+    // Raw HTML email
+    if (html) {
+      mailOptions.html = html;
+    }
+
+    const info =
+      await transporter.sendMail(
+        mailOptions
+      );
+
+    console.log(
+      "✅ Email sent:",
+      info.messageId
+    );
+
     return info;
   } catch (error) {
-    // Improve debuggability: show nodemailer + config-related info
     console.error(
-      "Email sending failed:",
-      {
-        message: error?.message || String(error),
-        code: error?.code,
-        response: error?.response,
-        stack: error?.stack,
-        // Avoid logging passwords; include only host/user/port presence
-        env: {
-          MAIL_TRAP_HOST: process.env.MAIL_TRAP_HOST ? "***" : undefined,
-          MAIL_TRAP_PORT: process.env.MAIL_TRAP_PORT,
-          MAIL_TRAP_USER: process.env.MAIL_TRAP_USER ? "***" : undefined,
-          EMAIL_USER: process.env.EMAIL_USER ? "***" : undefined,
-        },
-      }
+      "❌ Email sending failed:",
+      error
     );
     throw error;
   }
 };
 
 export default sendEmail;
-

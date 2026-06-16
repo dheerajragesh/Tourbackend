@@ -45,6 +45,24 @@ const tourSchema = new mongoose.Schema(
       },
     ],
 
+    categories: {
+      type: [String],
+      enum: [
+        "International Tours",
+        "Domestic Tour",
+        "Honey moon Tours",
+        "Family Tours",
+        "Luxury Tours",
+        "Budget tour",
+        "Adventure Tours",
+        "Cultural Tours",
+        "Wildlife Tours",
+        "Beach Tours",
+
+      ],
+      required: true,
+    },
+
     reviews: [
       {
         type: mongoose.Schema.Types.ObjectId,

@@ -34,6 +34,14 @@ const userSchema = new mongoose.Schema(
         ref: "Tour",
       },
     ],
+
+    // Forgot password
+    passwordResetToken: {
+      type: String,
+    },
+    passwordResetExpires: {
+      type: Date,
+    },
   },
   {
     timestamps: true,
