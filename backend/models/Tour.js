@@ -50,7 +50,7 @@ const tourSchema = new mongoose.Schema(
       enum: [
         "International Tours",
         "Domestic Tour",
-        "Honey moon Tours",
+        "Honeymoon Tours",
         "Family Tours",
         "Luxury Tours",
         "Budget tour",
